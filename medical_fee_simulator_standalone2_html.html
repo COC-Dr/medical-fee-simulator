@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="index,follow" />
+  <title>訪問診療費シミュレーター</title>
+  <style>
+    :root {
+      --bg: #f4f7f3;
+      --card: #ffffff;
+      --text: #26352d;
+      --muted: #66736b;
+      --line: #dfe7df;
+      --primary: #3f7d58;
+      --primary-dark: #2f6847;
+      --danger: #b42318;
+      --success: #3f7d58;
+      --shadow: 0 12px 30px rgba(36, 66, 48, 0.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "YuGothic", "Noto Sans JP", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      position: relative;
+      overflow: hidden;
+      color: #fff;
+      padding: 44px 20px;
+      text-align: center;
+      background:
+        linear-gradient(135deg, rgba(63, 125, 88, 0.9), rgba(134, 167, 137, 0.86)),
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.38), transparent 28%),
+        radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.22), transparent 24%),
+        linear-gradient(135deg, #3f7d58, #86a789);
+    }
+
+    header::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(63, 125, 88, 0.28), rgba(47, 104, 71, 0.38)),
+        url("images/komorebi.jpg");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: 0.48;
+      z-index: 0;
+    }
+
+    header::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 18% 26%, rgba(255, 255, 255, 0.34), transparent 20%),
+        radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.22), transparent 18%),
+        linear-gradient(rgba(27, 64, 44, 0.16), rgba(27, 64, 44, 0.22));
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    header h1 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 8px;
+      font-size: clamp(26px, 5vw, 40px);
+      letter-spacing: .02em;
+      text-shadow: 0 2px 12px rgba(31, 57, 40, 0.34);
+    }
+
+    header p {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      opacity: .96;
+      text-shadow: 0 1px 8px rgba(31, 57, 40, 0.28);
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 28px auto 56px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .tab-button,
+    button,
+    .file-label {
+      border: none;
+      border-radius: 999px;
+      padding: 11px 18px;
+      background: #e5e7eb;
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      transition: .18s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-button.active,
+    button.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    button:hover,
+    .file-label:hover { transform: translateY(-1px); }
+    button.primary:hover { background: var(--primary-dark); }
+    button.danger { background: #fee2e2; color: var(--danger); }
+    button.success { background: #dcfce7; color: var(--success); }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      border: 1px solid rgba(229, 231, 235, .8);
+    }
+
+    .span-7 { grid-column: span 7; }
+    .span-5 { grid-column: span 5; }
+    .span-12 { grid-column: span 12; }
+
+    h2, h3 {
+      margin-top: 0;
+      line-height: 1.35;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    textarea { min-height: 96px; resize: vertical; }
+
+    .checkbox-group {
+      display: grid;
+      gap: 10px;
+    }
+
+    .checkbox-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+    }
+
+    .checkbox-card input { width: auto; }
+
+    .result-box {
+      background: #edf7ee;
+      border: 1px solid #c8dfcc;
+      border-radius: 18px;
+      padding: 20px;
+      margin-top: 18px;
+    }
+
+    .result-price {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 900;
+      color: var(--primary);
+      line-height: 1.2;
+    }
+
+    .muted { color: var(--muted); font-size: 14px; }
+    .note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 14px; padding: 14px; }
+    .error { color: var(--danger); font-weight: 700; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 14px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th { background: #f9fafb; }
+    td input, td select { padding: 8px; font-size: 14px; }
+
+    .table-wrap { overflow-x: auto; }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      background: #f3f4f6;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    .hide { display: none !important; }
+
+    @media (max-width: 860px) {
+      .span-7, .span-5 { grid-column: span 12; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>訪問診療費シミュレーター</h1>
+    <p>月額の概算費用を計算できます。</p>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab-button active" data-tab="simulator">シミュレーター</button>
+      <button class="tab-button" data-tab="admin">管理画面</button>
+    </div>
+
+    <section id="simulator" class="screen active">
+      <div class="grid">
+        <div class="card span-7">
+          <h2>条件を入力してください</h2>
+          <div class="form-grid">
+            <div>
+              <label for="residenceType">居住形態</label>
+              <select id="residenceType">
+                <option value="home">ご自宅</option>
+                <option value="facility">施設</option>
+              </select>
+            </div>
+            <div>
+              <label for="buildingPatients">同一建物の診療患者数</label>
+              <select id="buildingPatients">
+                <option value="1">1人</option>
+                <option value="2-9">2〜9人</option>
+                <option value="10-19">10〜19人</option>
+                <option value="20-49">20〜49人</option>
+                <option value="50+">50人以上</option>
+              </select>
+            </div>
+            <div>
+              <label for="visitsPerMonth">訪問診療回数 / 月</label>
+              <input id="visitsPerMonth" type="number" min="0" step="1" value="2" />
+            </div>
+            <div>
+              <label for="severeDisease">癌・難病等</label>
+              <select id="severeDisease">
+                <option value="no">なし</option>
+                <option value="yes">あり</option>
+              </select>
+            </div>
+            <div>
+              <label for="burdenRate">医療保険の自己負担割合</label>
+              <select id="burdenRate">
+                <option value="0.1">1割</option>
+                <option value="0.2">2割</option>
+                <option value="0.3">3割</option>
+              </select>
+            </div>
+            <div>
+              <label for="publicSupport">公費・助成</label>
+              <select id="publicSupport">
+                <option value="none">なし</option>
+                <option value="welfare">生活保護：自己負担0円</option>
+                <option value="limit5000">月額上限 5,000円</option>
+                <option value="limit10000">月額上限 10,000円</option>
+                <option value="limit20000">月額上限 20,000円</option>
+              </select>
+            </div>
+            <div>
+              <label for="careInsuranceCopay">介護保険自己負担額 / 月</label>
+              <input id="careInsuranceCopay" type="number" min="0" step="1" value="0" />
+            </div>
+          </div>
+
+          <h3 style="margin-top: 24px;">医療処置・加算</h3>
+          <div id="addOnCheckboxes" class="checkbox-group"></div>
+
+          <div class="actions">
+            <button class="primary" id="calculateButton">概算費用を計算する</button>
+            <button id="resetSimulatorButton">入力をリセット</button>
+          </div>
+        </div>
+
+        <aside class="card span-5">
+          <h2>計算結果</h2>
+          <div class="result-box">
+            <div class="muted">1ヶ月あたりの概算自己負担額</div>
+            <div class="result-price"><span id="patientCopay">0</span>円</div>
+            <div class="muted">医療保険分 + 介護保険分 + 交通費</div>
+          </div>
+
+          <h3 style="margin-top: 22px;">内訳</h3>
+          <div id="breakdown"></div>
+
+          <div class="note" style="margin-top: 18px;">
+            <strong>ご注意</strong><br>
+            このシミュレーターは概算であり、実際の請求額とは異なる場合があります。実際の請求額は診療内容、算定要件、公費、限度額、施設基準、診療報酬改定等により異なります。
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="admin" class="screen">
+      <div class="grid">
+        <div class="card span-12">
+          <h2>点数マスタ管理</h2>
+          <p class="muted">点数は「1点＝10円」で計算します。在宅時医学総合管理料・施設入居時等医学総合管理料は、シミュレーター側で訪問回数・癌/難病の有無・同一建物診療患者数に応じて自動計算します。その他の基本料・加算はこの管理画面で編集できます。ヘッダー画像を表示する場合は、index.html と同じ階層に images フォルダを作成し、その中に komorebi.jpg を配置してください。</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>有効</th>
+                  <th>区分</th>
+                  <th>項目名</th>
+                  <th>点数</th>
+                  <th>算定方法</th>
+                  <th>居住形態</th>
+                  <th>同一建物人数</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="feeTableBody"></tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button class="primary" id="addFeeItemButton">項目を追加</button>
+            <button class="success" id="saveFeeItemsButton">保存</button>
+            <button id="exportJsonButton">JSONエクスポート</button>
+            <label class="file-label">
+              JSONインポート
+              <input id="importJsonInput" type="file" accept="application/json" class="hide" />
+            </label>
+            <button class="danger" id="restoreDefaultsButton">初期サンプルに戻す</button>
+          </div>
+        </div>
+
+        <div class="card span-12">
+          <h2>運用メモ</h2>
+          <textarea id="adminMemo" placeholder="例：令和6年度点数表を反映済み。次回改定時に見直し予定。"></textarea>
+          <div class="actions">
+            <button id="saveMemoButton">メモを保存</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'medicalFeeSimulatorItemsV1';
+    const MEMO_KEY = 'medicalFeeSimulatorMemoV1';
+    const YEN_PER_POINT = 10;
+    const TRANSPORTATION_FEE_PER_VISIT = 550;
+
+    const defaultFeeItems = [
+      {
+        id: crypto.randomUUID(),
+        active: true,
+        category: '基本料',
+        name: '在宅患者訪問診療料',
+        points: 888,
+        calculation: 'perVisit',
+        residenceType: 'home',
+        buildingPatients: 'any'
+      },
+      {
+        id: crypto.randomUUID(),
+        active: true,
+        category: '基本料',
+        name: '施設入居時 訪問診療料',
+        points: 213,
+        calculation: 'perVisit',
+        residenceType: 'facility',
+        buildingPatients: 'any'
+      },
+
+      {
+        id: crypto.randomUUID(),
+        active: true,
+        category: '加算',
+        name: '在宅酸素療法指導管理料',
+        points: 2400,
+        calculation: 'addon',
+        residenceType: 'any',
+        buildingPatients: 'any'
+      },
+      {
+        id: crypto.randomUUID(),
+        active: true,
+        category: '加算',
+        name: '在宅自己注射指導管理料',
+        points: 650,
+        calculation: 'addon',
+        residenceType: 'any',
+        buildingPatients: 'any'
+      },
+      {
+        id: crypto.randomUUID(),
+        active: true,
+        category: '加算',
+        name: '在宅経管栄養法指導管理料',
+        points: 1050,
+        calculation: 'addon',
+        residenceType: 'any',
+        buildingPatients: 'any'
+      },
+      {
+        id: crypto.randomUUID(),
+        active: true,
+        category: '加算',
+        name: '在宅持続陽圧呼吸療法指導管理料',
+        points: 250,
+        calculation: 'addon',
+        residenceType: 'any',
+        buildingPatients: 'any'
+      }
+    ];
+
+    let feeItems = loadFeeItems();
+
+    const medicalManagementFeeTable = {
+      home: {
+        visitTwoOrMoreSevere: 5835,
+        visitTwoOrMoreOther: 4485,
+        visitOnce: 2745
+      },
+      facility: {
+        '1': { visitTwoOrMoreSevere: 3835, visitTwoOrMoreOther: 3185, visitOnce: 1965 },
+        '2-9': { visitTwoOrMoreSevere: 3225, visitTwoOrMoreOther: 1685, visitOnce: 1065 },
+        '10-19': { visitTwoOrMoreSevere: 2865, visitTwoOrMoreOther: 1185, visitOnce: 765 },
+        '20-49': { visitTwoOrMoreSevere: 2400, visitTwoOrMoreOther: 1065, visitOnce: 670 },
+        '50+': { visitTwoOrMoreSevere: 2110, visitTwoOrMoreOther: 905, visitOnce: 575 }
+      }
+    };
+
+    const formatter = new Intl.NumberFormat('ja-JP');
+
+    function loadFeeItems() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return structuredClone(defaultFeeItems);
+      try {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : structuredClone(defaultFeeItems);
+      } catch (error) {
+        return structuredClone(defaultFeeItems);
+      }
+    }
+
+    function saveFeeItems() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(feeItems));
+    }
+
+    function matchesCondition(item, input) {
+      const residenceOk = item.residenceType === 'any' || item.residenceType === input.residenceType;
+      const buildingOk = item.buildingPatients === 'any' || item.buildingPatients === input.buildingPatients;
+      return item.active && residenceOk && buildingOk;
+    }
+
+    function getSimulatorInput() {
+      const checkedAddOns = Array.from(document.querySelectorAll('[name="addonItem"]:checked')).map(el => el.value);
+      return {
+        residenceType: document.getElementById('residenceType').value,
+        buildingPatients: document.getElementById('buildingPatients').value,
+        visitsPerMonth: Math.max(0, Number(document.getElementById('visitsPerMonth').value || 0)),
+        burdenRate: Number(document.getElementById('burdenRate').value),
+        publicSupport: document.getElementById('publicSupport').value,
+        careInsuranceCopay: Math.max(0, Number(document.getElementById('careInsuranceCopay').value || 0)),
+        severeDisease: document.getElementById('severeDisease').value,
+        checkedAddOns
+      };
+    }
+
+    function calculate() {
+      const input = getSimulatorInput();
+      const rows = [];
+      let totalPoints = 0;
+
+      const managementFee = getMedicalManagementFee(input);
+      if (managementFee.points > 0) {
+        totalPoints += managementFee.points;
+        rows.push({
+          name: managementFee.name,
+          category: '月額管理料',
+          unitPoints: managementFee.points,
+          quantity: 1,
+          points: managementFee.points,
+          yen: managementFee.points * YEN_PER_POINT
+        });
+      }
+
+      feeItems.filter(item => item.active).forEach(item => {
+        if (item.category === '月額管理料' || item.name.includes('在宅時医学総合管理料') || item.name.includes('施設入居時等医学総合管理料')) return;
+        if (!matchesCondition(item, input)) return;
+
+        let applied = false;
+        let quantity = 1;
+
+        if (item.calculation === 'perVisit') {
+          applied = true;
+          quantity = input.visitsPerMonth;
+        }
+
+        if (item.calculation === 'monthly') {
+          applied = true;
+          quantity = 1;
+        }
+
+        if (item.calculation === 'addon') {
+          applied = input.checkedAddOns.includes(item.id);
+          quantity = 1;
+        }
+
+        if (!applied || quantity <= 0) return;
+
+        const points = Number(item.points || 0) * quantity;
+        totalPoints += points;
+        rows.push({
+          name: item.name,
+          category: item.category,
+          unitPoints: Number(item.points || 0),
+          quantity,
+          points,
+          yen: points * YEN_PER_POINT
+        });
+      });
+
+      const totalMedicalYen = totalPoints * YEN_PER_POINT;
+      const medicalCopayBeforeLimit = Math.round(totalMedicalYen * input.burdenRate);
+      const medicalCopayAfterPublic = applyPublicSupport(medicalCopayBeforeLimit, input.publicSupport);
+      const transportationFee = input.visitsPerMonth * TRANSPORTATION_FEE_PER_VISIT;
+      const finalTotal = medicalCopayAfterPublic + input.careInsuranceCopay + transportationFee;
+
+      renderResult({
+        rows,
+        totalPoints,
+        totalMedicalYen,
+        medicalCopayBeforeLimit,
+        medicalCopayAfterPublic,
+        careInsuranceCopay: input.careInsuranceCopay,
+        transportationFee,
+        finalTotal,
+        publicSupport: input.publicSupport
+      });
+    }
+
+    function getMedicalManagementFee(input) {
+      if (input.visitsPerMonth <= 0) {
+        return { name: '医学総合管理料', points: 0 };
+      }
+
+      let key = 'visitOnce';
+      if (input.visitsPerMonth >= 2) {
+        key = input.severeDisease === 'yes' ? 'visitTwoOrMoreSevere' : 'visitTwoOrMoreOther';
+      }
+
+      if (input.residenceType === 'home') {
+        const severeLabel = input.visitsPerMonth >= 2
+          ? (input.severeDisease === 'yes' ? '癌・難病等' : '癌・難病等以外')
+          : '月1回訪問';
+        return {
+          name: `在宅時医学総合管理料（${severeLabel}）`,
+          points: medicalManagementFeeTable.home[key]
+        };
+      }
+
+      const tableRow = medicalManagementFeeTable.facility[input.buildingPatients];
+      const severeLabel = input.visitsPerMonth >= 2
+        ? (input.severeDisease === 'yes' ? '癌・難病等' : '癌・難病等以外')
+        : '月1回訪問';
+      const buildingLabel = {
+        '1': '1人',
+        '2-9': '2〜9人',
+        '10-19': '10〜19人',
+        '20-49': '20〜49人',
+        '50+': '50人以上'
+      }[input.buildingPatients] || '該当区分';
+
+      return {
+        name: `施設入居時等医学総合管理料（${buildingLabel}・${severeLabel}）`,
+        points: tableRow ? tableRow[key] : 0
+      };
+    }
+
+    function applyPublicSupport(amount, supportType) {
+      if (supportType === 'welfare') return 0;
+      if (supportType === 'limit5000') return Math.min(amount, 5000);
+      if (supportType === 'limit10000') return Math.min(amount, 10000);
+      if (supportType === 'limit20000') return Math.min(amount, 20000);
+      return amount;
+    }
+
+    function renderResult(result) {
+      document.getElementById('patientCopay').textContent = formatter.format(result.finalTotal);
+
+      const rowsHtml = result.rows.length
+        ? result.rows.map(row => `
+          <tr>
+            <td>${escapeHtml(row.name)}</td>
+            <td>${formatter.format(row.unitPoints)}点 × ${row.quantity}</td>
+            <td>${formatter.format(row.points)}点</td>
+            <td>${formatter.format(row.yen)}円</td>
+          </tr>
+        `).join('')
+        : '<tr><td colspan="4" class="muted">該当する点数項目がありません。管理画面の条件を確認してください。</td></tr>';
+
+      const supportLabel = {
+        none: 'なし',
+        welfare: '生活保護：自己負担0円',
+        limit5000: '月額上限5,000円',
+        limit10000: '月額上限10,000円',
+        limit20000: '月額上限20,000円'
+      }[result.publicSupport] || 'なし';
+
+      document.getElementById('breakdown').innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>項目</th>
+                <th>計算</th>
+                <th>点数</th>
+                <th>10割金額</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+        <p><span class="pill">総点数 ${formatter.format(result.totalPoints)}点</span></p>
+        <p>医療費総額：${formatter.format(result.totalMedicalYen)}円</p>
+        <p>医療保険自己負担：${formatter.format(result.medicalCopayBeforeLimit)}円</p>
+        <p>公費・上限適用：${escapeHtml(supportLabel)}</p>
+        <p>適用後医療費：${formatter.format(result.medicalCopayAfterPublic)}円</p>
+        <p>介護保険自己負担：${formatter.format(result.careInsuranceCopay)}円</p>
+        <p>交通費：${formatter.format(result.transportationFee)}円（訪問診療1回につき${formatter.format(TRANSPORTATION_FEE_PER_VISIT)}円）</p>
+      `;
+    }
+
+    function renderAddOnCheckboxes() {
+      const container = document.getElementById('addOnCheckboxes');
+      const addOns = feeItems.filter(item => item.active && item.calculation === 'addon');
+      if (!addOns.length) {
+        container.innerHTML = '<p class="muted">管理画面で「加算」項目を追加してください。</p>';
+        return;
+      }
+      container.innerHTML = addOns.map(item => `
+        <label class="checkbox-card">
+          <input type="checkbox" name="addonItem" value="${item.id}">
+          <span>${escapeHtml(item.name)} <span class="muted">${formatter.format(item.points)}点</span></span>
+        </label>
+      `).join('');
+    }
+
+    function renderFeeTable() {
+      const tbody = document.getElementById('feeTableBody');
+      tbody.innerHTML = feeItems.map((item, index) => `
+        <tr>
+          <td><input type="checkbox" data-index="${index}" data-field="active" ${item.active ? 'checked' : ''}></td>
+          <td><input type="text" data-index="${index}" data-field="category" value="${escapeAttr(item.category)}"></td>
+          <td><input type="text" data-index="${index}" data-field="name" value="${escapeAttr(item.name)}"></td>
+          <td><input type="number" min="0" step="1" data-index="${index}" data-field="points" value="${escapeAttr(item.points)}"></td>
+          <td>
+            <select data-index="${index}" data-field="calculation">
+              <option value="perVisit" ${item.calculation === 'perVisit' ? 'selected' : ''}>訪問回数ごと</option>
+              <option value="monthly" ${item.calculation === 'monthly' ? 'selected' : ''}>月1回</option>
+              <option value="addon" ${item.calculation === 'addon' ? 'selected' : ''}>チェック時のみ</option>
+            </select>
+          </td>
+          <td>
+            <select data-index="${index}" data-field="residenceType">
+              <option value="any" ${item.residenceType === 'any' ? 'selected' : ''}>すべて</option>
+              <option value="home" ${item.residenceType === 'home' ? 'selected' : ''}>ご自宅</option>
+              <option value="facility" ${item.residenceType === 'facility' ? 'selected' : ''}>施設</option>
+            </select>
+          </td>
+          <td>
+            <select data-index="${index}" data-field="buildingPatients">
+              <option value="any" ${item.buildingPatients === 'any' ? 'selected' : ''}>すべて</option>
+              <option value="1" ${item.buildingPatients === '1' ? 'selected' : ''}>1人</option>
+              <option value="2-9" ${item.buildingPatients === '2-9' ? 'selected' : ''}>2〜9人</option>
+              <option value="10-19" ${item.buildingPatients === '10-19' ? 'selected' : ''}>10〜19人</option>
+              <option value="20-49" ${item.buildingPatients === '20-49' ? 'selected' : ''}>20〜49人</option>
+              <option value="50+" ${item.buildingPatients === '50+' ? 'selected' : ''}>50人以上</option>
+            </select>
+          </td>
+          <td><button class="danger" data-delete-index="${index}">削除</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function syncFeeItemsFromTable() {
+      document.querySelectorAll('#feeTableBody input, #feeTableBody select').forEach(input => {
+        const index = Number(input.dataset.index);
+        const field = input.dataset.field;
+        if (!field || Number.isNaN(index)) return;
+
+        if (field === 'active') {
+          feeItems[index][field] = input.checked;
+        } else if (field === 'points') {
+          feeItems[index][field] = Math.max(0, Number(input.value || 0));
+        } else {
+          feeItems[index][field] = input.value;
+        }
+      });
+    }
+
+    function addFeeItem() {
+      syncFeeItemsFromTable();
+      feeItems.push({
+        id: crypto.randomUUID(),
+        active: true,
+        category: '加算',
+        name: '新しい項目',
+        points: 0,
+        calculation: 'addon',
+        residenceType: 'any',
+        buildingPatients: 'any'
+      });
+      renderFeeTable();
+    }
+
+    function deleteFeeItem(index) {
+      syncFeeItemsFromTable();
+      feeItems.splice(index, 1);
+      saveFeeItems();
+      renderFeeTable();
+      renderAddOnCheckboxes();
+      calculate();
+    }
+
+    function exportJson() {
+      syncFeeItemsFromTable();
+      const blob = new Blob([JSON.stringify(feeItems, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'medical-fee-items.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJson(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          if (!Array.isArray(parsed)) throw new Error('JSONの形式が正しくありません。');
+          feeItems = parsed.map(item => ({
+            id: item.id || crypto.randomUUID(),
+            active: Boolean(item.active),
+            category: String(item.category || ''),
+            name: String(item.name || ''),
+            points: Math.max(0, Number(item.points || 0)),
+            calculation: ['perVisit', 'monthly', 'addon'].includes(item.calculation) ? item.calculation : 'addon',
+            residenceType: ['any', 'home', 'facility'].includes(item.residenceType) ? item.residenceType : 'any',
+            buildingPatients: ['any', '1', '2-9', '10-19', '20-49', '50+'].includes(item.buildingPatients) ? item.buildingPatients : 'any'
+          }));
+          saveFeeItems();
+          renderFeeTable();
+          renderAddOnCheckboxes();
+          calculate();
+          alert('JSONをインポートしました。');
+        } catch (error) {
+          alert('インポートできませんでした：' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(button.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.getElementById('calculateButton').addEventListener('click', calculate);
+    document.getElementById('resetSimulatorButton').addEventListener('click', () => {
+      document.getElementById('residenceType').value = 'home';
+      document.getElementById('buildingPatients').value = '1';
+      document.getElementById('visitsPerMonth').value = 2;
+      document.getElementById('burdenRate').value = 0.1;
+      document.getElementById('severeDisease').value = 'no';
+      document.getElementById('publicSupport').value = 'none';
+      document.getElementById('careInsuranceCopay').value = 0;
+      document.querySelectorAll('[name="addonItem"]').forEach(el => el.checked = false);
+      calculate();
+    });
+
+    document.getElementById('addFeeItemButton').addEventListener('click', addFeeItem);
+    document.getElementById('saveFeeItemsButton').addEventListener('click', () => {
+      syncFeeItemsFromTable();
+      saveFeeItems();
+      renderAddOnCheckboxes();
+      calculate();
+      alert('点数マスタを保存しました。');
+    });
+
+    document.getElementById('feeTableBody').addEventListener('click', event => {
+      const button = event.target.closest('[data-delete-index]');
+      if (!button) return;
+      deleteFeeItem(Number(button.dataset.deleteIndex));
+    });
+
+    document.getElementById('exportJsonButton').addEventListener('click', exportJson);
+    document.getElementById('importJsonInput').addEventListener('change', event => {
+      const file = event.target.files[0];
+      if (file) importJson(file);
+      event.target.value = '';
+    });
+
+    document.getElementById('restoreDefaultsButton').addEventListener('click', () => {
+      if (!confirm('初期サンプルに戻します。現在の点数マスタは上書きされます。よろしいですか？')) return;
+      feeItems = structuredClone(defaultFeeItems);
+      saveFeeItems();
+      renderFeeTable();
+      renderAddOnCheckboxes();
+      calculate();
+    });
+
+    document.getElementById('saveMemoButton').addEventListener('click', () => {
+      localStorage.setItem(MEMO_KEY, document.getElementById('adminMemo').value);
+      alert('メモを保存しました。');
+    });
+
+    document.getElementById('adminMemo').value = localStorage.getItem(MEMO_KEY) || '';
+
+    ['residenceType', 'buildingPatients', 'visitsPerMonth', 'severeDisease', 'burdenRate', 'publicSupport', 'careInsuranceCopay'].forEach(id => {
+      document.getElementById(id).addEventListener('input', calculate);
+      document.getElementById(id).addEventListener('change', calculate);
+    });
+
+    document.getElementById('addOnCheckboxes').addEventListener('change', calculate);
+
+    renderFeeTable();
+    renderAddOnCheckboxes();
+    calculate();
+  </script>
+</body>
+</html>
