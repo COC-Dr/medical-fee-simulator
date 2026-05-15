@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="index,follow" />
-  <title>訪問診療費シミュレーター1</title>
+  <title>訪問診療費シミュレーター</title>
   <style>
     :root {
       --bg: #f4f7f3;
@@ -272,15 +272,11 @@
   </header>
 
   <main>
-    <div class="tabs">
-      <button class="tab-button active" data-tab="simulator">シミュレーター</button>
-      <button class="tab-button" data-tab="admin">管理画面</button>
-    </div>
-
     <section id="simulator" class="screen active">
       <div class="grid">
         <div class="card span-7">
           <h2>条件を入力してください</h2>
+          <p class="muted">分かる範囲で入力してください。金額は自動で計算されます。</p>
           <div class="form-grid">
             <div>
               <label for="residenceType">居住形態</label>
@@ -302,6 +298,13 @@
             <div>
               <label for="visitsPerMonth">訪問診療回数 / 月</label>
               <input id="visitsPerMonth" type="number" min="0" step="1" value="2" />
+            </div>
+            <div>
+              <label for="severeDisease">癌・難病等</label>
+              <select id="severeDisease">
+                <option value="no">なし</option>
+                <option value="yes">あり</option>
+              </select>
             </div>
             <div>
               <label for="burdenRate">医療保険の自己負担割合</label>
@@ -354,61 +357,15 @@
         </aside>
       </div>
     </section>
-
-    <section id="admin" class="screen">
-      <div class="grid">
-        <div class="card span-12">
-          <h2>点数マスタ管理</h2>
-          <p class="muted">点数は「1点＝10円」で計算します。初期値はサンプルです。実運用前に必ず正式な診療報酬点数・算定条件に差し替えてください。ヘッダー画像を表示する場合は、index.html と同じ階層に images フォルダを作成し、その中に komorebi.jpg を配置してください。</p>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>有効</th>
-                  <th>区分</th>
-                  <th>項目名</th>
-                  <th>点数</th>
-                  <th>算定方法</th>
-                  <th>居住形態</th>
-                  <th>同一建物人数</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="feeTableBody"></tbody>
-            </table>
-          </div>
-          <div class="actions">
-            <button class="primary" id="addFeeItemButton">項目を追加</button>
-            <button class="success" id="saveFeeItemsButton">保存</button>
-            <button id="exportJsonButton">JSONエクスポート</button>
-            <label class="file-label">
-              JSONインポート
-              <input id="importJsonInput" type="file" accept="application/json" class="hide" />
-            </label>
-            <button class="danger" id="restoreDefaultsButton">初期サンプルに戻す</button>
-          </div>
-        </div>
-
-        <div class="card span-12">
-          <h2>運用メモ</h2>
-          <textarea id="adminMemo" placeholder="例：令和6年度点数表を反映済み。次回改定時に見直し予定。"></textarea>
-          <div class="actions">
-            <button id="saveMemoButton">メモを保存</button>
-          </div>
-        </div>
-      </div>
-    </section>
   </main>
 
   <script>
-    const STORAGE_KEY = 'medicalFeeSimulatorItemsV1';
-    const MEMO_KEY = 'medicalFeeSimulatorMemoV1';
     const YEN_PER_POINT = 10;
     const TRANSPORTATION_FEE_PER_VISIT = 550;
 
-    const defaultFeeItems = [
+    const feeItems = [
       {
-        id: crypto.randomUUID(),
+        id: 'home-visit-fee',
         active: true,
         category: '基本料',
         name: '在宅患者訪問診療料',
@@ -418,7 +375,7 @@
         buildingPatients: 'any'
       },
       {
-        id: crypto.randomUUID(),
+        id: 'facility-visit-fee',
         active: true,
         category: '基本料',
         name: '施設入居時 訪問診療料',
@@ -428,27 +385,7 @@
         buildingPatients: 'any'
       },
       {
-        id: crypto.randomUUID(),
-        active: true,
-        category: '月額管理料',
-        name: '在宅時医学総合管理料',
-        points: 4500,
-        calculation: 'monthly',
-        residenceType: 'home',
-        buildingPatients: '1'
-      },
-      {
-        id: crypto.randomUUID(),
-        active: true,
-        category: '月額管理料',
-        name: '施設入居時等医学総合管理料',
-        points: 3000,
-        calculation: 'monthly',
-        residenceType: 'facility',
-        buildingPatients: '2-9'
-      },
-      {
-        id: crypto.randomUUID(),
+        id: 'oxygen',
         active: true,
         category: '加算',
         name: '在宅酸素療法指導管理料',
@@ -458,7 +395,7 @@
         buildingPatients: 'any'
       },
       {
-        id: crypto.randomUUID(),
+        id: 'self-injection',
         active: true,
         category: '加算',
         name: '在宅自己注射指導管理料',
@@ -468,7 +405,7 @@
         buildingPatients: 'any'
       },
       {
-        id: crypto.randomUUID(),
+        id: 'tube-feeding',
         active: true,
         category: '加算',
         name: '在宅経管栄養法指導管理料',
@@ -478,7 +415,7 @@
         buildingPatients: 'any'
       },
       {
-        id: crypto.randomUUID(),
+        id: 'cpap',
         active: true,
         category: '加算',
         name: '在宅持続陽圧呼吸療法指導管理料',
@@ -489,24 +426,22 @@
       }
     ];
 
-    let feeItems = loadFeeItems();
+    const medicalManagementFeeTable = {
+      home: {
+        visitTwoOrMoreSevere: 5835,
+        visitTwoOrMoreOther: 4485,
+        visitOnce: 2745
+      },
+      facility: {
+        '1': { visitTwoOrMoreSevere: 3835, visitTwoOrMoreOther: 3185, visitOnce: 1965 },
+        '2-9': { visitTwoOrMoreSevere: 3225, visitTwoOrMoreOther: 1685, visitOnce: 1065 },
+        '10-19': { visitTwoOrMoreSevere: 2865, visitTwoOrMoreOther: 1185, visitOnce: 765 },
+        '20-49': { visitTwoOrMoreSevere: 2400, visitTwoOrMoreOther: 1065, visitOnce: 670 },
+        '50+': { visitTwoOrMoreSevere: 2110, visitTwoOrMoreOther: 905, visitOnce: 575 }
+      }
+    };
 
     const formatter = new Intl.NumberFormat('ja-JP');
-
-    function loadFeeItems() {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) return structuredClone(defaultFeeItems);
-      try {
-        const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : structuredClone(defaultFeeItems);
-      } catch (error) {
-        return structuredClone(defaultFeeItems);
-      }
-    }
-
-    function saveFeeItems() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(feeItems));
-    }
 
     function matchesCondition(item, input) {
       const residenceOk = item.residenceType === 'any' || item.residenceType === input.residenceType;
@@ -523,6 +458,7 @@
         burdenRate: Number(document.getElementById('burdenRate').value),
         publicSupport: document.getElementById('publicSupport').value,
         careInsuranceCopay: Math.max(0, Number(document.getElementById('careInsuranceCopay').value || 0)),
+        severeDisease: document.getElementById('severeDisease').value,
         checkedAddOns
       };
     }
@@ -531,6 +467,19 @@
       const input = getSimulatorInput();
       const rows = [];
       let totalPoints = 0;
+
+      const managementFee = getMedicalManagementFee(input);
+      if (managementFee.points > 0) {
+        totalPoints += managementFee.points;
+        rows.push({
+          name: managementFee.name,
+          category: '月額管理料',
+          unitPoints: managementFee.points,
+          quantity: 1,
+          points: managementFee.points,
+          yen: managementFee.points * YEN_PER_POINT
+        });
+      }
 
       feeItems.filter(item => item.active).forEach(item => {
         if (!matchesCondition(item, input)) return;
@@ -586,6 +535,44 @@
       });
     }
 
+    function getMedicalManagementFee(input) {
+      if (input.visitsPerMonth <= 0) {
+        return { name: '医学総合管理料', points: 0 };
+      }
+
+      let key = 'visitOnce';
+      if (input.visitsPerMonth >= 2) {
+        key = input.severeDisease === 'yes' ? 'visitTwoOrMoreSevere' : 'visitTwoOrMoreOther';
+      }
+
+      if (input.residenceType === 'home') {
+        const severeLabel = input.visitsPerMonth >= 2
+          ? (input.severeDisease === 'yes' ? '癌・難病等' : '癌・難病等以外')
+          : '月1回訪問';
+        return {
+          name: `在宅時医学総合管理料（${severeLabel}）`,
+          points: medicalManagementFeeTable.home[key]
+        };
+      }
+
+      const tableRow = medicalManagementFeeTable.facility[input.buildingPatients];
+      const severeLabel = input.visitsPerMonth >= 2
+        ? (input.severeDisease === 'yes' ? '癌・難病等' : '癌・難病等以外')
+        : '月1回訪問';
+      const buildingLabel = {
+        '1': '1人',
+        '2-9': '2〜9人',
+        '10-19': '10〜19人',
+        '20-49': '20〜49人',
+        '50+': '50人以上'
+      }[input.buildingPatients] || '該当区分';
+
+      return {
+        name: `施設入居時等医学総合管理料（${buildingLabel}・${severeLabel}）`,
+        points: tableRow ? tableRow[key] : 0
+      };
+    }
+
     function applyPublicSupport(amount, supportType) {
       if (supportType === 'welfare') return 0;
       if (supportType === 'limit5000') return Math.min(amount, 5000);
@@ -606,7 +593,7 @@
             <td>${formatter.format(row.yen)}円</td>
           </tr>
         `).join('')
-        : '<tr><td colspan="4" class="muted">該当する点数項目がありません。管理画面の条件を確認してください。</td></tr>';
+        : '<tr><td colspan="4" class="muted">該当する点数項目がありません。</td></tr>';
 
       const supportLabel = {
         none: 'なし',
@@ -643,132 +630,12 @@
     function renderAddOnCheckboxes() {
       const container = document.getElementById('addOnCheckboxes');
       const addOns = feeItems.filter(item => item.active && item.calculation === 'addon');
-      if (!addOns.length) {
-        container.innerHTML = '<p class="muted">管理画面で「加算」項目を追加してください。</p>';
-        return;
-      }
       container.innerHTML = addOns.map(item => `
         <label class="checkbox-card">
           <input type="checkbox" name="addonItem" value="${item.id}">
           <span>${escapeHtml(item.name)} <span class="muted">${formatter.format(item.points)}点</span></span>
         </label>
       `).join('');
-    }
-
-    function renderFeeTable() {
-      const tbody = document.getElementById('feeTableBody');
-      tbody.innerHTML = feeItems.map((item, index) => `
-        <tr>
-          <td><input type="checkbox" data-index="${index}" data-field="active" ${item.active ? 'checked' : ''}></td>
-          <td><input type="text" data-index="${index}" data-field="category" value="${escapeAttr(item.category)}"></td>
-          <td><input type="text" data-index="${index}" data-field="name" value="${escapeAttr(item.name)}"></td>
-          <td><input type="number" min="0" step="1" data-index="${index}" data-field="points" value="${escapeAttr(item.points)}"></td>
-          <td>
-            <select data-index="${index}" data-field="calculation">
-              <option value="perVisit" ${item.calculation === 'perVisit' ? 'selected' : ''}>訪問回数ごと</option>
-              <option value="monthly" ${item.calculation === 'monthly' ? 'selected' : ''}>月1回</option>
-              <option value="addon" ${item.calculation === 'addon' ? 'selected' : ''}>チェック時のみ</option>
-            </select>
-          </td>
-          <td>
-            <select data-index="${index}" data-field="residenceType">
-              <option value="any" ${item.residenceType === 'any' ? 'selected' : ''}>すべて</option>
-              <option value="home" ${item.residenceType === 'home' ? 'selected' : ''}>ご自宅</option>
-              <option value="facility" ${item.residenceType === 'facility' ? 'selected' : ''}>施設</option>
-            </select>
-          </td>
-          <td>
-            <select data-index="${index}" data-field="buildingPatients">
-              <option value="any" ${item.buildingPatients === 'any' ? 'selected' : ''}>すべて</option>
-              <option value="1" ${item.buildingPatients === '1' ? 'selected' : ''}>1人</option>
-              <option value="2-9" ${item.buildingPatients === '2-9' ? 'selected' : ''}>2〜9人</option>
-              <option value="10-19" ${item.buildingPatients === '10-19' ? 'selected' : ''}>10〜19人</option>
-              <option value="20-49" ${item.buildingPatients === '20-49' ? 'selected' : ''}>20〜49人</option>
-              <option value="50+" ${item.buildingPatients === '50+' ? 'selected' : ''}>50人以上</option>
-            </select>
-          </td>
-          <td><button class="danger" data-delete-index="${index}">削除</button></td>
-        </tr>
-      `).join('');
-    }
-
-    function syncFeeItemsFromTable() {
-      document.querySelectorAll('#feeTableBody input, #feeTableBody select').forEach(input => {
-        const index = Number(input.dataset.index);
-        const field = input.dataset.field;
-        if (!field || Number.isNaN(index)) return;
-
-        if (field === 'active') {
-          feeItems[index][field] = input.checked;
-        } else if (field === 'points') {
-          feeItems[index][field] = Math.max(0, Number(input.value || 0));
-        } else {
-          feeItems[index][field] = input.value;
-        }
-      });
-    }
-
-    function addFeeItem() {
-      syncFeeItemsFromTable();
-      feeItems.push({
-        id: crypto.randomUUID(),
-        active: true,
-        category: '加算',
-        name: '新しい項目',
-        points: 0,
-        calculation: 'addon',
-        residenceType: 'any',
-        buildingPatients: 'any'
-      });
-      renderFeeTable();
-    }
-
-    function deleteFeeItem(index) {
-      syncFeeItemsFromTable();
-      feeItems.splice(index, 1);
-      saveFeeItems();
-      renderFeeTable();
-      renderAddOnCheckboxes();
-      calculate();
-    }
-
-    function exportJson() {
-      syncFeeItemsFromTable();
-      const blob = new Blob([JSON.stringify(feeItems, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'medical-fee-items.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function importJson(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const parsed = JSON.parse(reader.result);
-          if (!Array.isArray(parsed)) throw new Error('JSONの形式が正しくありません。');
-          feeItems = parsed.map(item => ({
-            id: item.id || crypto.randomUUID(),
-            active: Boolean(item.active),
-            category: String(item.category || ''),
-            name: String(item.name || ''),
-            points: Math.max(0, Number(item.points || 0)),
-            calculation: ['perVisit', 'monthly', 'addon'].includes(item.calculation) ? item.calculation : 'addon',
-            residenceType: ['any', 'home', 'facility'].includes(item.residenceType) ? item.residenceType : 'any',
-            buildingPatients: ['any', '1', '2-9', '10-19', '20-49', '50+'].includes(item.buildingPatients) ? item.buildingPatients : 'any'
-          }));
-          saveFeeItems();
-          renderFeeTable();
-          renderAddOnCheckboxes();
-          calculate();
-          alert('JSONをインポートしました。');
-        } catch (error) {
-          alert('インポートできませんでした：' + error.message);
-        }
-      };
-      reader.readAsText(file);
     }
 
     function escapeHtml(value) {
@@ -780,77 +647,26 @@
         .replaceAll("'", '&#039;');
     }
 
-    function escapeAttr(value) {
-      return escapeHtml(value);
-    }
-
-    document.querySelectorAll('.tab-button').forEach(button => {
-      button.addEventListener('click', () => {
-        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
-        button.classList.add('active');
-        document.getElementById(button.dataset.tab).classList.add('active');
-      });
-    });
-
     document.getElementById('calculateButton').addEventListener('click', calculate);
     document.getElementById('resetSimulatorButton').addEventListener('click', () => {
       document.getElementById('residenceType').value = 'home';
       document.getElementById('buildingPatients').value = '1';
       document.getElementById('visitsPerMonth').value = 2;
       document.getElementById('burdenRate').value = 0.1;
+      document.getElementById('severeDisease').value = 'no';
       document.getElementById('publicSupport').value = 'none';
       document.getElementById('careInsuranceCopay').value = 0;
       document.querySelectorAll('[name="addonItem"]').forEach(el => el.checked = false);
       calculate();
     });
 
-    document.getElementById('addFeeItemButton').addEventListener('click', addFeeItem);
-    document.getElementById('saveFeeItemsButton').addEventListener('click', () => {
-      syncFeeItemsFromTable();
-      saveFeeItems();
-      renderAddOnCheckboxes();
-      calculate();
-      alert('点数マスタを保存しました。');
-    });
-
-    document.getElementById('feeTableBody').addEventListener('click', event => {
-      const button = event.target.closest('[data-delete-index]');
-      if (!button) return;
-      deleteFeeItem(Number(button.dataset.deleteIndex));
-    });
-
-    document.getElementById('exportJsonButton').addEventListener('click', exportJson);
-    document.getElementById('importJsonInput').addEventListener('change', event => {
-      const file = event.target.files[0];
-      if (file) importJson(file);
-      event.target.value = '';
-    });
-
-    document.getElementById('restoreDefaultsButton').addEventListener('click', () => {
-      if (!confirm('初期サンプルに戻します。現在の点数マスタは上書きされます。よろしいですか？')) return;
-      feeItems = structuredClone(defaultFeeItems);
-      saveFeeItems();
-      renderFeeTable();
-      renderAddOnCheckboxes();
-      calculate();
-    });
-
-    document.getElementById('saveMemoButton').addEventListener('click', () => {
-      localStorage.setItem(MEMO_KEY, document.getElementById('adminMemo').value);
-      alert('メモを保存しました。');
-    });
-
-    document.getElementById('adminMemo').value = localStorage.getItem(MEMO_KEY) || '';
-
-    ['residenceType', 'buildingPatients', 'visitsPerMonth', 'burdenRate', 'publicSupport', 'careInsuranceCopay'].forEach(id => {
+    ['residenceType', 'buildingPatients', 'visitsPerMonth', 'severeDisease', 'burdenRate', 'publicSupport', 'careInsuranceCopay'].forEach(id => {
       document.getElementById(id).addEventListener('input', calculate);
       document.getElementById(id).addEventListener('change', calculate);
     });
 
     document.getElementById('addOnCheckboxes').addEventListener('change', calculate);
 
-    renderFeeTable();
     renderAddOnCheckboxes();
     calculate();
   </script>
